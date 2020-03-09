@@ -1,7 +1,9 @@
 import json
+import os
 from pymongo import MongoClient
 import pandas
 import configparser
+import exceptions
 
 
 
@@ -18,61 +20,64 @@ class bcolors:
 
 
 def mongoConnect(env):
-
-     # check that environment is valid
-     validateEnv(env)
-
-     # create connection to mongo
-     config = configparser.ConfigParser()
-     config.read('python/config.ini')
-     url = config['url'][env]
-     lib = config['libName'][env]
-     db = MongoClient(url)[lib]
-     # check that connection is valid
-     validateDBConnect(db)
-     
-     return db
+     try:
+         # check that environment is valid
+         validateEnv(env)
+         # create connection to mongo
+         config = configparser.ConfigParser()
+         config.read('config.ini')
+         url = config['url'][env]
+         lib = config['libName'][env]
+         db = MongoClient(url)[lib]
+         # check that connection is valid
+         validateDBConnect(db)
+         return db
+     except:
+         pass
 
      
 
 
 def validateDBConnect(db):
-    colls = db.list_collection_names()
-    count = len(colls)
-    # if db finds some collections it is valid
-    if count > 0:
-        return 1
-    else:
-        return 0
+    try:
+        colls = db.list_collection_names()
+        # if db finds some collections it is valid
+        if len(colls) < 1:
+            raise InvalidDBError
+    except InvalidDBError:
+         print("DB connection not valid. Check parameters")
+   
  
 
 def validateEnv(env):
-    validEnvs = ['sandbox', 'qa-graphql', 'production']
-    if env not in validEnvs:
-        raise InvalidEnvironmentError(envError)
-    if env == 'production':
-        confirmation = input(bcolors.WARNING + "\nTo confirm, re-enter 'production':\n" + bcolors.ENDC)
-        if confirmation == "production":
-            pass
-        else:
-            print(bcolors.FAIL +
-                  "'{confirmation}' != 'production \n\nAborting..." +
-                  bcolors.ENDC)
+    validEnvs = ['sandbox', 'qa', 'prd','entBackup']
+    try:
+        if env not in validEnvs:
+            raise InvalidEnvironmentError
+        if env == 'prd':
+            confirmation = input(bcolors.WARNING +
+                                 "\nTo confirm, re-enter 'prd':\n" + bcolors.ENDC)
+            if confirmation == "prd":
+                pass
+            else:
+                print(bcolors.FAIL +
+                      "'{confirmation}' != 'prd \n\nAborting..." +
+                      bcolors.ENDC)
 
-    return env
+                return env
+    except InvalidEnvironmentError:
+        print("Invalid Environment. Must be 'qa' or 'prd'")
 
 
 
-def importJSON(input, collection, db):
-    with open(input, 'r') as infile:
-        data = json.load(infile)
-        collection.insert_many(data)
-    # add error handling
-    # add print statement of number of elements added to collection
 
-        
-class InvalidEnvironmentError(Error):
-    '''
-    Raised when referencing an invalid environment
-    Environment must be one of: 'sandbox', 'qa-graphql', 'production'
-    '''
+def importJSON(input, collection):
+    try:
+        with open(input, 'r') as infile:
+            data = json.load(infile)
+            collection.insert_many(data)
+            count = len(data)
+            print(str(count) + ' documents inserted into ' + str(collection.name))
+    except:
+        print('There was an error inserting ' + str(input))
+   
